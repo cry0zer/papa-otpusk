@@ -1,24 +1,41 @@
 import telebot
 from telebot import types
 import requests
+from flask import Flask
+from threading import Thread
 
-TOKEN = "8730274244:AAFS2Ehm_knkwivPhPRI9lmEmt1Ml5S2erw"
+# --- ФЕЙКОВЫЙ СЕРВЕР ДЛЯ RENDER ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run():
+    # Запускаем веб-сервер на порту 8080 для Render
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# ----------------------------------
+
+TOKEN = "8730274244:AAFS2Ehm_knkwivPhPRI9lmEmt1M1S52erw"
 bot = telebot.TeleBot(TOKEN)
 
 # Настройка ответов
 AUTO_REPLY_HTML = (
     "👋 <b>Я В ОТПУСКЕ И ТЕЛЕФОН НЕ БЕРУ.</b>\n\n"
-    "По svim вопросам пишите тем, кто работает:\n"
+    "По всем вопросам пишите тем, кто работает:\n"
     "• <b>Техника / разработка:</b> @ivan_dev\n"
     "• <b>Документы / оплаты:</b> @olga_paper\n"
     "• <b>Срочно / завал:</b> @support_team\n\n"
     "Вернусь — прочту (может быть). Удачи!"
 )
 
-# Функция для получения URL случайного мема (используем стабильный мем-API)
+# Функция для получения URL случайного мема
 def get_random_meme_url():
     try:
-        # Дергаем проверенный API мемов
         r = requests.get("https://meme-api.com/gimme", timeout=5)
         r.raise_for_status()
         data = r.json()
@@ -28,14 +45,13 @@ def get_random_meme_url():
              return get_random_meme_url()
              
         return data.get("url")
-    except:
+    except Exception:
         return None
 
 # Хэндлер на любые сообщения
 @bot.message_handler(content_types=['text', 'photo', 'sticker', 'voice', 'document'])
 def reply_to_all(message):
     keyboard = types.InlineKeyboardMarkup()
-    # Кнопку переименовали под мемы
     keyboard.add(types.InlineKeyboardButton(text="😂 Получить дозу чилла (мем)", callback_data="send_meme"))
     
     bot.reply_to(message, AUTO_REPLY_HTML, parse_mode="html", reply_markup=keyboard)
@@ -47,17 +63,17 @@ def meme_callback(call):
     
     bot.answer_callback_query(call.id, text="Загружаем мем... 😂")
     
-    # 1. Получаем мем
     meme_url = get_random_meme_url()
 
-    # 2. Отправляем или мем, или подбадривающий текст, если API лежит
     if meme_url:
         try:
-            # API может вернуть mp4 или gif, telebot это нормально переварит
             bot.send_document(chat_id, meme_url, caption="😂 Не кипятись, держи мем!")
-        except Exception as e:
+        except Exception:
             bot.send_message(chat_id, "Мем не прогрузился, но ты всё равно отдохни! 😉")
     else:
         bot.send_message(chat_id, "Даже мемоделы ушли в отпуск... Попробуй позже! 😅")
 
-bot.infinity_polling()
+# Точка входа
+if __name__ == "__main__":
+    keep_alive()            # Запускаем фейк-сервер
+    bot.infinity_polling()  # Запускаем бота
